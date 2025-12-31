@@ -1,12 +1,3 @@
-use tray_icon::{
-    TrayIcon, TrayIconBuilder,
-    menu::{Menu, MenuEvent, MenuItem},
-};
-use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
-use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::window::WindowId;
-
 use wtransport::Identity;
 use wtransport::ServerConfig;
 use wtransport::{Endpoint, endpoint::endpoint_side::Server};
@@ -14,52 +5,6 @@ use wtransport::{Endpoint, endpoint::endpoint_side::Server};
 use mki::{Keyboard, Mouse};
 
 use serde_json::Value;
-
-struct App {
-    tray_icon: Option<TrayIcon>,
-    quit_item_id: String,
-}
-
-impl ApplicationHandler for App {
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
-        if self.tray_icon.is_none() {
-            let tray_menu = Menu::new();
-            let quit_i = MenuItem::new("Sair", true, None);
-            self.quit_item_id = quit_i.id().0.clone(); // Guardamos o ID para comparar depois
-            tray_menu.append_items(&[&quit_i]).unwrap();
-
-            let icon = load_icon_from_file("icons/icon_con.png");
-
-            let tray = TrayIconBuilder::new()
-                .with_menu(Box::new(tray_menu))
-                .with_tooltip("CloudEX Connection")
-                .with_icon(icon)
-                .build()
-                .unwrap();
-
-            self.tray_icon = Some(tray);
-        }
-    }
-
-    fn window_event(&mut self, _event_loop: &ActiveEventLoop, _id: WindowId, _event: WindowEvent) {
-        // Eventos de janela (se você criar uma)
-    }
-
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
-        // Eventos customizados
-    }
-
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        // Verificamos eventos de clique no menu aqui
-        if let Ok(event) = MenuEvent::receiver().try_recv() {
-            if event.id.0 == self.quit_item_id {
-                println!("Saindo...");
-                self.tray_icon.take(); // Remove o ícone da bandeja
-                event_loop.exit();
-            }
-        }
-    }
-}
 
 fn get_data_from_json(text: &str) -> (String, String) {
     let json_result: Value = serde_json::from_str(text).expect("Correct JSON format");
@@ -177,12 +122,6 @@ fn main() -> anyhow::Result<()> {
 
     let _guard = rt.enter();
 
-    let event_loop = EventLoop::new().unwrap();
-    let mut app = App {
-        tray_icon: None,
-        quit_item_id: String::new(),
-    };
-
     let identify = Identity::self_signed(["localhost", "127.0.0.1", "::1"])?;
 
     let fingerprint = identify.certificate_chain().as_slice()[0].hash();
@@ -203,18 +142,5 @@ fn main() -> anyhow::Result<()> {
         session_handler(server).await;
     });
 
-    // 5. Iniciar a App (bloqueia aqui)
-    event_loop.run_app(&mut app).map_err(|e| anyhow::anyhow!(e))
-}
-
-fn load_icon_from_file(path: &str) -> tray_icon::Icon {
-    let img = image::open(path)
-        .expect("Falha ao abrir o arquivo de imagem")
-        .into_rgba8();
-
-    let (width, height) = img.dimensions();
-
-    let rgba = img.into_raw();
-
-    tray_icon::Icon::from_rgba(rgba, width, height).expect("Falha ao converter pixels em ícone")
+    loop {}
 }
