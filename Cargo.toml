@@ -1,0 +1,15 @@
+[package]
+name = "cloudex"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+hex = "0.4.3"
+image = "0.25.9"
+mki = "0.2.3"
+serde_json = "1.0.148"
+tokio = { version="1.48.0", features = ["rt-multi-thread", "macros", "rt", "net", "sync", "time"]}
+tray-icon = "0.21.2"
+winit = "0.30.12"
+wtransport = "0.6.1"

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Inspetor de Eventos JS</title>
+        <style>
+            body {
+                font-family: "Courier New", Courier, monospace;
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 20px;
+                margin: 0;
+            }
+            .container {
+                width: 90%;
+                max-width: 800px;
+            }
+            .header-box {
+                background: #252526;
+                padding: 20px;
+                border-radius: 8px;
+                text-align: center;
+                border: 1px solid #3c3c3c;
+                margin-bottom: 20px;
+            }
+            #main-display {
+                font-size: 2rem;
+                color: #4ec9b0;
+                margin-bottom: 10px;
+            }
+            .json-output {
+                background: #000;
+                padding: 15px;
+                border-radius: 5px;
+                border: 1px solid #007acc;
+                overflow-x: auto;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                font-size: 0.9rem;
+                line-height: 1.4;
+                color: #9cdcfe;
+            }
+            .label {
+                color: #ce9178;
+                margin-bottom: 5px;
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header-box">
+                <div id="main-display">Aguardando Interação...</div>
+                <p>Clique ou digite algo para ver a resposta do evento</p>
+            </div>
+
+            <span class="label"
+                >// Objeto do Evento (Propriedades Selecionadas):</span
+            >
+            <pre id="event-log" class="json-output">
+As informações do evento aparecerão aqui...</pre
+            >
+        </div>
+
+        <script>
+            const mainDisplay = document.getElementById("main-display");
+            const eventLog = document.getElementById("event-log");
+
+            function updateDisplay(event, type) {
+                // No caso do mouse, identificamos o nome do botão
+                let buttonName = "";
+                if (type === "Mouse") {
+                    const buttons = {
+                        0: "Botão Esquerdo",
+                        1: "Scroll/Meio",
+                        2: "Botão Direito",
+                    };
+                    buttonName = buttons[event.button] || "Outro Botão";
+                }
+
+                // Atualiza o título grande
+                mainDisplay.innerText =
+                    type === "Teclado" ? `Tecla: ${event.key}` : buttonName;
+
+                // Criamos um objeto com as propriedades mais importantes do evento disparado
+                const eventData = {
+                    tipo_evento: event.type,
+                    target: event.target.tagName,
+                    timestamp: event.timeStamp.toFixed(2),
+                    // Propriedades de Teclado
+                    key: event.key || null,
+                    code: event.code || null,
+                    altKey: event.altKey,
+                    ctrlKey: event.ctrlKey,
+                    shiftKey: event.shiftKey,
+                    // Propriedades de Mouse
+                    button: event.button !== undefined ? event.button : null,
+                    clientX: event.clientX || null,
+                    clientY: event.clientY || null,
+                };
+
+                // Exibe o "JSON" da resposta do evento na tela
+                eventLog.innerText = JSON.stringify(eventData, null, 4);
+            }
+
+            // Eventos de Teclado
+            window.addEventListener("keydown", (e) => {
+                updateDisplay(e, "Teclado");
+            });
+
+            // Eventos de Mouse
+            window.addEventListener("mousedown", (e) => {
+                updateDisplay(e, "Mouse");
+            });
+
+            // Bloqueia o menu de contexto para o botão direito não atrapalhar
+            window.oncontextmenu = (e) => e.preventDefault();
+        </script>
+    </body>
+</html>

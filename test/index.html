@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8" />
+        <title>WebTransport Luiz - Event Streamer</title>
+        <style>
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                padding: 30px;
+                background: #1a1a1a;
+                color: #eee;
+            }
+            .container {
+                max-width: 600px;
+                margin: auto;
+                background: #2d2d2d;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            }
+            input,
+            button {
+                width: 100%;
+                padding: 12px;
+                margin: 8px 0;
+                border-radius: 4px;
+                border: none;
+                font-size: 16px;
+            }
+            input {
+                background: #3d3d3d;
+                color: white;
+            }
+            button {
+                background: #007acc;
+                color: white;
+                cursor: pointer;
+                font-weight: bold;
+            }
+            button:disabled {
+                background: #555;
+                cursor: not-allowed;
+            }
+            #status-badge {
+                display: inline-block;
+                padding: 5px 10px;
+                border-radius: 4px;
+                font-size: 0.8rem;
+                margin-bottom: 10px;
+                background: #444;
+            }
+            .connected {
+                background: #28a745 !important;
+            }
+            #log {
+                background: #000;
+                padding: 10px;
+                border-radius: 4px;
+                height: 200px;
+                overflow-y: auto;
+                font-family: monospace;
+                font-size: 12px;
+                color: #0f0;
+                margin-top: 20px;
+                border: 1px solid #444;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>WebTransport Event Streamer</h2>
+            <div id="status-badge">Desconectado</div>
+
+            <label>Fingerprint SHA-256 do Certificado:</label>
+            <input
+                type="text"
+                id="hashInput"
+                placeholder="Insira a hash de 64 caracteres"
+            />
+
+            <button id="connectBtn">Conectar e Ativar Captura</button>
+
+            <div id="log"></div>
+            <p style="font-size: 0.8rem; color: #888; margin-top: 10px">
+                * Após conectar, qualquer tecla ou clique nesta página será
+                enviado ao servidor.
+            </p>
+        </div>
+
+        <script>
+            const logDiv = document.getElementById("log");
+            const hashInput = document.getElementById("hashInput");
+            const connectBtn = document.getElementById("connectBtn");
+            const statusBadge = document.getElementById("status-badge");
+
+            let transport;
+            let writer;
+            let reader;
+
+            function log(msg) {
+                const p = document.createElement("div");
+                p.textContent = `> ${msg}`;
+                logDiv.appendChild(p);
+                logDiv.scrollTop = logDiv.scrollHeight;
+            }
+
+            function hexToBytes(hex) {
+                hex = hex.replace(/\s|:/g, "");
+                let bytes = new Uint8Array(hex.length / 2);
+                for (let i = 0; i < bytes.length; i++) {
+                    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+                }
+                return bytes;
+            }
+
+            async function readFromRust() {
+                const decoder = new TextDecoder();
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        log(`Resposta do Servidor: ${decoder.decode(value)}`);
+                    }
+                } catch (e) {
+                    log(`Erro na leitura: ${e}`);
+                }
+            }
+
+            // Função central para enviar os eventos
+            async function sendEventPayload(eventType, dataValue) {
+                if (!writer) return;
+
+                const payload = {
+                    event: eventType,
+                    data: dataValue.toString(), // Garante que o dado vá como string/texto
+                };
+
+                const message = JSON.stringify(payload);
+                const encoder = new TextEncoder();
+
+                try {
+                    await writer.write(encoder.encode(message));
+                    log(`Enviado: ${message}`);
+                } catch (e) {
+                    log(`Erro ao enviar: ${e}`);
+                }
+            }
+
+            connectBtn.onclick = async () => {
+                const hashHex = hashInput.value.trim();
+                if (hashHex.length !== 64) {
+                    log("Erro: Hash inválida.");
+                    return;
+                }
+
+                try {
+                    const fingerprint = hexToBytes(hashHex);
+                    transport = new WebTransport("https://127.0.0.1:4433", {
+                        serverCertificateHashes: [
+                            { algorithm: "sha-256", value: fingerprint },
+                        ],
+                    });
+
+                    log("Conectando...");
+                    await transport.ready;
+
+                    const stream = await transport.createBidirectionalStream();
+                    writer = stream.writable.getWriter();
+                    reader = stream.readable.getReader();
+
+                    readFromRust();
+
+                    // Atualiza Interface
+                    statusBadge.textContent = "Conectado - Capturando Eventos";
+                    statusBadge.classList.add("connected");
+                    connectBtn.disabled = true;
+                    log("Sucesso! Captura de teclado/mouse ativada.");
+
+                    // --- ATIVAÇÃO DOS LISTENERS ---
+
+                    // Captura Teclado
+                    window.addEventListener("keydown", (e) => {
+                        // Evita enviar se o foco estiver no input da hash
+                        if (document.activeElement === hashInput) return;
+                        sendEventPayload("keydown", e.key);
+                    });
+
+                    // Captura Mouse
+                    window.addEventListener("mousedown", (e) => {
+                        sendEventPayload("mousedown", e.button);
+                    });
+
+                    // Bloqueia menu de contexto para capturar botão direito (2) sem interferência
+                    window.oncontextmenu = (e) => e.preventDefault();
+                } catch (e) {
+                    log(`Erro: ${e}`);
+                }
+            };
+        </script>
+    </body>
+</html>
